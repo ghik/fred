@@ -1,8 +1,7 @@
 package com.avsystem.fred
-package hello
 
-object HelloFred {
+object Mejn {
   def main(args: Array[String]): Unit = {
-    println("Hello, Fredd!")
+    println("do widzenia")
   }
 }

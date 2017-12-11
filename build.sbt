@@ -1,9 +1,5 @@
-
-// It's good to extract dependency version numbers to named values. When there is a lot of dependencies, it's also
-// good to create a separate Scala file in project subdirectory (usually project/Dependencies.scala) for listing
-// all the dependencies.
-val silencerVersion = "0.5"
-val avsCommonsVersion = "1.25.3"
+import Dependencies._
+import org.scalajs.jsenv.nodejs.NodeJSEnv
 
 // inThisBuild essentially means "for all projects" - an unqualified setting would by default apply
 // only to root project
@@ -30,15 +26,6 @@ inThisBuild(Seq(
     "-Xfatal-warnings", // enforce no warning policy (but warnings can be suppressed using silencer)
     "-Xlint:-missing-interpolator,-adapted-args,-unused,_" // additional warnings
   ),
-  libraryDependencies ++= Seq(
-    "com.github.ghik" %% "silencer-lib" % silencerVersion,
-    // the invented-here commons library
-    "com.avsystem.commons" %% "commons-core" % avsCommonsVersion excludeAll "com.google.code.findbugs",
-    // compiler plugin for selective warning suppression, which Scala doesn't have by default
-    compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion),
-    // the invented-here static code analyzer with some random rules like rejecting `import java.util`
-    compilerPlugin("com.avsystem.commons" %% "commons-analyzer" % avsCommonsVersion),
-  ),
   // The base package option for IDE. IntelliJ will automatically create chained package declarations in newly
   // created Scala files. See `fred` package object for more details.
   ideBasePackages := Seq("com.avsystem.fred"),
@@ -50,8 +37,15 @@ lazy val fred = project.in(file("."))
   // Aggregation makes it so that invoking a task on root project also invokes it on all aggregated projects.
   .aggregate(fredLocal)
   .settings(
+    // I need to do `.value` because `freDeps` contains cross-dependencies specified with %%% and must be
+    // a `Def.Initialize[Seq[ModuleID]]` instead of just `Seq[ModuleID]`
+    // I also can't do it inThisBuild because it must be known if this is a JVM or JS project
+    libraryDependencies ++= freDeps.value,
     name := "fred"
   )
 
 // A separate subproject declaration
-lazy val fredLocal = project
+lazy val fredLocal = project.enablePlugins(ScalaJSPlugin)
+  .settings(
+    libraryDependencies ++= freDeps.value,
+  )
