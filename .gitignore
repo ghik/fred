@@ -1,0 +1,8 @@
+*.class
+*.orig
+*.sjsir
+target
+out
+build
+.idea
+
