@@ -1,5 +1,4 @@
 import Dependencies._
-import org.scalajs.jsenv.nodejs.NodeJSEnv
 
 // inThisBuild essentially means "for all projects" - an unqualified setting would by default apply
 // only to root project
@@ -35,7 +34,7 @@ inThisBuild(Seq(
 // lets us configure it more.
 lazy val fred = project.in(file("."))
   // Aggregation makes it so that invoking a task on root project also invokes it on all aggregated projects.
-  .aggregate(fredLocal)
+  .aggregate(fredLocalJVM, fredLocalJS)
   .settings(
     // I need to do `.value` because `freDeps` contains cross-dependencies specified with %%% and must be
     // a `Def.Initialize[Seq[ModuleID]]` instead of just `Seq[ModuleID]`
@@ -45,7 +44,17 @@ lazy val fred = project.in(file("."))
   )
 
 // A separate subproject declaration
-lazy val fredLocal = project.enablePlugins(ScalaJSPlugin)
-  .settings(
-    libraryDependencies ++= freDeps.value,
+lazy val fredLocal = crossProject.crossType(CrossType.Full)
+  .settings(libraryDependencies ++= freDeps.value)
+  .jsSettings(
+    scalaJSUseMainModuleInitializer := true,
   )
+
+lazy val fredLocalJVM = fredLocal.jvm
+lazy val fredLocalJS = fredLocal.js
+
+//  project.enablePlugins(ScalaJSPlugin)
+//  .settings(
+//    libraryDependencies ++= freDeps.value,
+//    scalaJSUseMainModuleInitializer := true,
+//  )
