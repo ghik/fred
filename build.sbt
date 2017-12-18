@@ -1,5 +1,10 @@
 import Dependencies._
 
+// Will be true when SBT is run by IntelliJ for project import (NOT sbt shell)
+// For this to work, you MUST NOT use the "Use sbt shell for build and import" feature in IntelliJ
+val forIdeaImport = System.getProperty("idea.managed", "false").toBoolean &&
+  System.getProperty("idea.runid") == null
+
 // inThisBuild essentially means "for all projects" - an unqualified setting would by default apply
 // only to root project
 inThisBuild(Seq(
@@ -34,7 +39,7 @@ inThisBuild(Seq(
 // lets us configure it more.
 lazy val fred = project.in(file("."))
   // Aggregation makes it so that invoking a task on root project also invokes it on all aggregated projects.
-  .aggregate(fredLocalJVM, fredLocalJS)
+  .aggregate(fredLocal, fredLocalJs)
   .settings(
     // I need to do `.value` because `freDeps` contains cross-dependencies specified with %%% and must be
     // a `Def.Initialize[Seq[ModuleID]]` instead of just `Seq[ModuleID]`
@@ -43,18 +48,32 @@ lazy val fred = project.in(file("."))
     name := "fred"
   )
 
+def mkSourceDirs(base: File, scalaBinary: String, conf: String): Seq[File] = Seq(
+  base / "src" / conf / "scala",
+  base / "src" / conf / s"scala-$scalaBinary",
+  base / "src" / conf / "java"
+)
+
+def sourceDirsSettings(baseMapper: File => File) = Seq(
+  unmanagedSourceDirectories in Compile ++=
+    mkSourceDirs(baseMapper(baseDirectory.value), scalaBinaryVersion.value, "main"),
+  unmanagedSourceDirectories in Test ++=
+    mkSourceDirs(baseMapper(baseDirectory.value), scalaBinaryVersion.value, "test"),
+)
+
 // A separate subproject declaration
-lazy val fredLocal = crossProject.crossType(CrossType.Full)
-  .settings(libraryDependencies ++= freDeps.value)
-  .jsSettings(
-    scalaJSUseMainModuleInitializer := true,
+lazy val fredLocal = project
+  .settings(
+    sourceDirsSettings(_ / "jvm"),
+    libraryDependencies ++= freDeps.value,
   )
 
-lazy val fredLocalJVM = fredLocal.jvm
-lazy val fredLocalJS = fredLocal.js
-
-//  project.enablePlugins(ScalaJSPlugin)
-//  .settings(
-//    libraryDependencies ++= freDeps.value,
-//    scalaJSUseMainModuleInitializer := true,
-//  )
+lazy val fredLocalJs = project.in(`fredLocal`.base / "js")
+  .enablePlugins(ScalaJSPlugin)
+  .configure(p => if (forIdeaImport) p.dependsOn(fredLocal) else p)
+  .settings(
+    sourceDirsSettings(_.getParentFile),
+    name := (name in fredLocal).value,
+    libraryDependencies ++= freDeps.value,
+    scalaJSUseMainModuleInitializer := true,
+  )
