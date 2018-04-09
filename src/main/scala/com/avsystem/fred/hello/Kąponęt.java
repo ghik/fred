@@ -1,6 +1,11 @@
 package com.avsystem.fred.hello;
 
-import java.util.function.Supplier;
+import scala.collection.JavaConversions;
+import scala.collection.Seq;
+import scala.collection.Traversable;
+import scala.collection.immutable.Map;
+
+import java.util.Arrays;
 
 /**
  * @author ghik
@@ -10,7 +15,7 @@ public class Kąponęt {
         long currentTimeMillis();
     }
 
-    public Kąponęt(Supplier<String> strSupplier) {
+    public Kąponęt(MyClock clock) {
 //        strSupplier.get();
 //        strSupplier.get();
     }
@@ -21,6 +26,21 @@ public class Kąponęt {
     }
 
     public static void main(String[] args) {
-        new Kąponęt(getInteger()::toString);
+        Seq<String> scalaSeq = JavaConversions.asScalaBuffer(
+                Arrays.asList("foo", "bar"));
+
+        Map<Integer, Traversable<String>> map =
+                scalaSeq.groupBy(String::length);
+
+        new Kąponęt(System::currentTimeMillis);
+
+        switch (42) {
+            case 42: {
+                String lol = "fuu";
+            }
+            default: {
+                String lol = "fuu";
+            }
+        }
     }
 }
