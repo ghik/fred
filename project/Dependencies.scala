@@ -1,10 +1,10 @@
-import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 import sbt._
 
 object Dependencies {
   // It's good to extract dependency version numbers to named values.
-  val silencerVersion = "0.5"
-  val avsCommonsVersion = "1.25.3"
+  val silencerVersion = "1.2.1"
+  val avsCommonsVersion = "1.34.2"
 
   // List of dependencies containing cross dependencies (for both JVM and JS, using %%% syntax) must be wrapped
   // into `Def.setting` because %%% can't be expanded until it's known whether the project is a JVM or JS project.

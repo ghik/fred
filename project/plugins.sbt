@@ -12,4 +12,4 @@ resolvers += Resolver.url("jetbrains-bintray",
 addSbtPlugin("org.jetbrains" % "sbt-ide-settings" % "1.0.0")
 // Uses Coursier for dependency resolution, which is much faster than the default Ivy.
 addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.0-RC13")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.21")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.25")

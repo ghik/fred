@@ -10,7 +10,7 @@ val forIdeaImport = System.getProperty("idea.managed", "false").toBoolean &&
 inThisBuild(Seq(
   organization := "com.avsystem",
   version := "1.0-SNAPSHOT",
-  scalaVersion := "2.12.4",
+  scalaVersion := "2.12.7",
   // Mixed compile order makes it so that we can have both Java and Scala in the same module AND that they can
   // freely depend on each other, in both directions, i.e. there may be even circular dependencies between Scala
   // and Java files.
