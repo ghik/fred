@@ -3,11 +3,8 @@ package hello
 
 import java.util.concurrent.locks.{Lock, ReentrantLock}
 
-import com.avsystem.commons.misc.Opt
-
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.Future
 
 object HelloFred {
   sealed trait Optjon[+A]
