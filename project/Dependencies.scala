@@ -4,7 +4,7 @@ import sbt._
 object Dependencies {
   // It's good to extract dependency version numbers to named values.
   val silencerVersion = "1.2.1"
-  val avsCommonsVersion = "1.34.2"
+  val avsCommonsVersion = "1.34.4"
 
   // List of dependencies containing cross dependencies (for both JVM and JS, using %%% syntax) must be wrapped
   // into `Def.setting` because %%% can't be expanded until it's known whether the project is a JVM or JS project.

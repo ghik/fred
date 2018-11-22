@@ -3,16 +3,19 @@ package ser
 
 import com.avsystem.commons.annotation.positioned
 import com.avsystem.commons.meta._
-import com.avsystem.commons.misc.{Unapplier, ValueOf}
+import com.avsystem.commons.misc.{Applier, Unapplier, ValueOf}
+import com.avsystem.commons.serialization.GenCodec.ReadFailure
 import com.avsystem.commons.serialization._
-import com.avsystem.commons.serialization.json.{JsonOptions, JsonStringOutput}
+import com.avsystem.commons.serialization.json.{JsonOptions, JsonReader, JsonStringInput, JsonStringOutput}
 
 import scala.annotation.StaticAnnotation
+import scala.collection.mutable
 
-class transform[T](val f: T => T) extends StaticAnnotation
+class transform[T](val onWrite: T => T, val onRead: T => T) extends StaticAnnotation
 
 trait Kodek[T] {
   def write(output: Output, value: T): Unit
+  def read(input: Input): T
 }
 object Kodek {
   def apply[T](implicit kodek: Kodek[T]): Kodek[T] = kodek
@@ -24,10 +27,26 @@ object Kodek {
     sb.toString
   }
 
-  def create[T](fun: (Output, T) => Unit): Kodek[T] = fun.apply
+  def readJson[T: Kodek](json: String): T =
+    Kodek[T].read(new JsonStringInput(new JsonReader(json)))
 
-  implicit val IntKodek: Kodek[Int] = create(_.writeSimple().writeInt(_))
-  implicit val StringKodek: Kodek[String] = create(_.writeSimple().writeString(_))
+  def create[T](
+    writeFun: (Output, T) => Unit,
+    readFun: Input => T
+  ): Kodek[T] = new Kodek[T] {
+    def write(output: Output, value: T): Unit = writeFun(output, value)
+    def read(input: Input): T = readFun(input)
+  }
+
+  implicit val IntKodek: Kodek[Int] = create(_.writeSimple().writeInt(_), _.readSimple().readInt())
+  implicit val StringKodek: Kodek[String] = create(_.writeSimple().writeString(_), _.readSimple().readString())
+  implicit def optCodec[T: Kodek]: Kodek[Opt[T]] = create(
+    {
+      case (o, Opt.Empty) => o.writeNull()
+      case (o, Opt(v)) => Kodek[T].write(o, v)
+    },
+    i => if (i.readNull()) Opt.Empty else Opt(Kodek[T].read(i))
+  )
 
   implicit def fromFallback[T](implicit fallbackKodek: Fallback[Kodek[T]]): Kodek[T] =
     fallbackKodek.value
@@ -46,6 +65,17 @@ object AdtKodek extends AdtMetadataCompanion[AdtKodek]
     val wrappedOutput = oo.writeField(caseUsed.name)
     caseUsed.kodek.asInstanceOf[Kodek[T]].write(wrappedOutput, value)
     oo.finish()
+  }
+  def read(input: Input): T = {
+    val oi = input.readObject()
+    val wrappedField = oi.nextField()
+    val caseName = wrappedField.fieldName
+    val caseUsed = cases.find(_.name == caseName)
+      .getOrElse(throw new ReadFailure(s"Unknown case $caseName"))
+      .asInstanceOf[UnionCase[T]]
+    val result = caseUsed.kodek.read(wrappedField)
+    oi.skipRemaining()
+    result
   }
 }
 object UnionKodek extends AdtMetadataCompanion[UnionKodek]
@@ -79,28 +109,50 @@ sealed trait UnionCase[T] extends TypedMetadata[T] {
 
 @positioned(positioned.here) @annotated[transparent] class TransparentKodek[T](
   @adtParamMetadata val field: RecordField[_],
-  @infer @checked val unapplier: Unapplier[T]
+  @infer @checked val unapplier: Unapplier[T],
+  @infer @checked val applier: Applier[T]
 ) extends AdtKodek[T] {
   def write(output: Output, value: T): Unit = {
     val fieldValue = unapplier.unapply(value).head
     field.kodek.asInstanceOf[Kodek[Any]].write(output, fieldValue)
   }
+  def read(input: Input): T =
+    applier.apply(List(field.kodek.asInstanceOf[Kodek[Any]].read(input)))
 }
 
 @positioned(positioned.here) class RecordKodek[T](
   @multi @adtParamMetadata val fields: List[RecordField[_]],
-  @infer @checked val unapplier: Unapplier[T]
+  @infer @checked val unapplier: Unapplier[T],
+  @infer @checked val applier: Applier[T]
 ) extends AdtKodek[T] {
+  val fieldsByName: Map[String, RecordField[_]] = fields.toMapBy(_.rawName)
+
   def write(output: Output, value: T): Unit = {
     val oo = output.writeObject()
     (fields zip unapplier.unapply(value)).foreach {
       case (field: RecordField[Any@unchecked], fieldValue) =>
         if (!field.transientDefault || !field.defValue.contains(fieldValue)) {
-          field.kodek.write(oo.writeField(field.rawName), field.transformed(fieldValue))
+          field.kodek.write(oo.writeField(field.rawName), field.writeTransformed(fieldValue))
         }
       case _ =>
     }
     oo.finish()
+  }
+  def read(input: Input): T = {
+    val fvMap = new mutable.OpenHashMap[String, Any]
+    val oi = input.readObject()
+    while (oi.hasNext) {
+      val fi = oi.nextField()
+      fieldsByName.getOpt(fi.fieldName) match {
+        case Opt(field: RecordField[Any@unchecked]) =>
+          fvMap(fi.fieldName) = field.readTransformed(field.kodek.read(fi))
+        case Opt.Empty => fi.skip()
+      }
+    }
+    def whenAbsent(f: RecordField[_]): Any =
+      f.defValue.getOrElse(throw new ReadFailure(s"Nie ma ${f.rawName}"))
+    val fieldValues = fields.map(f => fvMap.getOrElse(f.rawName, whenAbsent(f)))
+    applier(fieldValues)
   }
 }
 object RecordKodek extends AdtMetadataCompanion[RecordKodek]
@@ -110,6 +162,10 @@ object RecordKodek extends AdtMetadataCompanion[RecordKodek]
 ) extends AdtKodek[T] with TypedMetadata[T] {
   def write(output: Output, value: T): Unit =
     output.writeObject().finish()
+  def read(input: Input): T = {
+    input.skip()
+    value.value
+  }
 }
 
 class RecordField[T](
@@ -118,11 +174,13 @@ class RecordField[T](
   @isAnnotated[transientDefault] val transientDefault: Boolean,
   @optional @reifyDefaultValue val defaultValue: Opt[DefaultValue[T]],
   @multi @reifyAnnot val transforms: List[transform[T]],
-  @infer val kodek: Kodek[T]
+  @infer kodekCreator: => Kodek[T]
 ) extends TypedMetadata[T] {
+  def kodek: Kodek[T] = kodekCreator
   def rawName: String = annotName.fold(name)(_.name)
   val defValue: Opt[T] = defaultValue.flatMap(dv => Try(dv.value).toOpt)
-  def transformed(value: T): T = transforms.foldRight(value)((t, v) => t.f(v))
+  def writeTransformed(value: T): T = transforms.foldRight(value)((t, v) => t.onWrite(v))
+  def readTransformed(value: T): T = transforms.foldLeft(value)((v, t) => t.onRead(v))
 }
 
 trait Kodeki[T] {
@@ -132,7 +190,7 @@ trait Kodeki[T] {
 
 object CustomCodecs {
   implicit val doubleKodek: Fallback[Kodek[Double]] =
-    Fallback(Kodek.create(_.writeSimple().writeDouble(_)))
+    Fallback(Kodek.create(_.writeSimple().writeDouble(_), _.readSimple().readDouble()))
 }
 
 abstract class HasKodek[T](
