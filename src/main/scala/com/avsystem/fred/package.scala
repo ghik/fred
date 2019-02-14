@@ -12,4 +12,28 @@ import com.avsystem.commons.{CommonAliases, SharedExtensions}
 // So, in other words - using project-global package object for package configured as base package is a way to make
 // some stuff visible globally in the entire project.
 package object fred
-  extends SharedExtensions with CommonAliases with CollectionAliases with JavaInterop
+  extends SharedExtensions with CommonAliases with CollectionAliases with JavaInterop {
+
+  type Callback[T] = Try[T] => Unit
+  type Async[T] = Callback[T] => Unit
+
+  def successfulAsync[A](value: A): Async[A] =
+    readyAsync(Success(value))
+
+  def failedAsync[A](cause: Throwable): Async[A] =
+    readyAsync(Failure(cause))
+
+  def readyAsync[A](result: Try[A]): Async[A] =
+    callback => callback(result)
+
+  implicit class asyncOps[A](async: Async[A]) {
+    def withFilter(p: A => Boolean): Async[A] =
+      callback => async(res => callback(res.filter(p)))
+
+    def map[B](f: A => B): Async[B] =
+      callback => async(tb => callback(tb.map(f)))
+
+    def flatMap[B](f: A => Async[B]): Async[B] =
+      callback => async(ta => ta.fold(failedAsync, f).apply(callback))
+  }
+}
