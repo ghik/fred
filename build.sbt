@@ -66,6 +66,7 @@ lazy val fredLocal = project
   .settings(
     sourceDirsSettings(_ / "jvm"),
     libraryDependencies ++= freDeps.value,
+    libraryDependencies ++= freJvmDeps,
   )
 
 lazy val fredLocalJs = project.in(`fredLocal`.base / "js")

@@ -3,10 +3,11 @@ import sbt._
 
 object Dependencies {
   // It's good to extract dependency version numbers to named values.
-  val silencerVersion = "1.2.1"
+  val silencerVersion = "1.3.1"
   val avsCommonsVersion = "1.34.8"
   val udashRestVersion = "0.8.0-M8"
   val monixVersion = "3.0.0-RC2"
+  val typesafeConfigVersion = "1.3.3"
 
   // List of dependencies containing cross dependencies (for both JVM and JS, using %%% syntax) must be wrapped
   // into `Def.setting` because %%% can't be expanded until it's known whether the project is a JVM or JS project.
@@ -22,4 +23,8 @@ object Dependencies {
     compilerPlugin("com.avsystem.commons" %% "commons-analyzer" % avsCommonsVersion),
     "org.scalatest" %%% "scalatest" % "3.0.4" % Test,
   ))
+  
+  val freJvmDeps = Seq(
+    "com.typesafe" % "config" % typesafeConfigVersion,
+  )
 }
