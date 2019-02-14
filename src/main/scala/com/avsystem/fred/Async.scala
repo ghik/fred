@@ -28,7 +28,7 @@ object CpsDB {
   def incMoney(id: String, cont: Try[Unit] => Unit): Unit =
     get(id, {
       case Success(p) => save(p.copy(money = p.money + 1), cont)
-      case failure => cont(failure)
+      case Failure(t) => cont(Failure(t))
     })
 }
 
