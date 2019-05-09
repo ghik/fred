@@ -3,9 +3,9 @@ import sbt._
 
 object Dependencies {
   // It's good to extract dependency version numbers to named values.
-  val silencerVersion = "1.3.1"
-  val avsCommonsVersion = "1.34.8"
-  val udashRestVersion = "0.8.0-M8"
+  val silencerVersion = "1.3.3"
+  val avsCommonsVersion = "1.34.17"
+  val udashRestVersion = "0.8.0-RC3"
   val monixVersion = "3.0.0-RC2"
   val typesafeConfigVersion = "1.3.3"
 

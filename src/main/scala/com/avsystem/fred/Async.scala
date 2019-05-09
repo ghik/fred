@@ -2,6 +2,8 @@ package com.avsystem.fred
 
 import java.util.concurrent.{CompletableFuture, Future => JFuture}
 
+import monix.eval.Task
+
 case class Persona(id: String, money: Long = 0)
 
 object SyncDB {
@@ -17,6 +19,28 @@ object JFuturesDB {
 object FuturesDB {
   def get(id: String): Future[Persona] = Future.successful(Persona(id))
   def save(p: Persona): Future[Unit] = Future.unit
+
+  def bothMoney(id1: String, id2: String)(implicit ec: ExecutionContext): Future[Long] = {
+    for {
+      _ <- Future.unit
+      p1f = get(id1)
+      p2f = get(id2)
+      m1 <- p1f.mapNow(_.money)
+      m2 <- p2f.mapNow(_.money)
+    } yield m1 + m2
+  }
+
+  def totalMoney(maxid: Int)(implicit ec: ExecutionContext): Future[Long] = {
+    def loop(id: Int, money: Long): Future[Long] =
+      if (id > maxid) Future.successful(money)
+      else get(id.toString).flatMap(p => loop(id + 1, money + p.money))
+    loop(0, 0)
+  }
+
+  def main(args: Array[String]): Unit = {
+    import com.avsystem.commons.concurrent.RunNowEC.Implicits._
+    totalMoney(1000000).onComplete(println)
+  }
 }
 
 object CpsDB {
@@ -40,6 +64,17 @@ object AsyncDB {
     p <- AsyncDB.get(id)
     _ <- AsyncDB.save(p.copy(money = p.money + 1))
   } yield ()
+
+}
+
+object TaskDB {
+  def get(id: String): Task[Persona] = Task.now(Persona(id))
+  def save(p: Persona): Task[Unit] = Task.unit
+
+  def incMoney(id: String): Task[Unit] = for {
+    p <- get(id)
+    _ <- save(p.copy(money = p.money + 1))
+  } yield ()
 }
 
 object Async {
@@ -47,10 +82,7 @@ object Async {
     CompletableFuture.completedFuture("")
 
   def main(args: Array[String]): Unit = {
-    val filename = "costam.txt"
-    val contentsFut = readFile(filename)
-    val upperFilename = filename.toUpperCase
-    val contents = contentsFut.get
+
   }
 
 }
