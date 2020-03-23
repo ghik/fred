@@ -10,6 +10,4 @@ resolvers += Resolver.url("jetbrains-bintray",
 // The IDE will then automatically use chained package declarations in newly created Scala files.
 // The plugin is also useful for excluding projects and directories for the IDE.
 addSbtPlugin("org.jetbrains" % "sbt-ide-settings" % "1.0.0")
-// Uses Coursier for dependency resolution, which is much faster than the default Ivy.
-addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.0-RC13")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.25")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.32")
